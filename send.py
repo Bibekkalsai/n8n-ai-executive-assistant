@@ -1,7 +1,7 @@
 import requests
 
 # Paste your exact copied n8n Webhook URL here (no < > brackets)
-url = ""
+url = "n8n Webhook URL"
 
 query = input("Enter your query: ")
 

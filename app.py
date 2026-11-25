@@ -1,3 +1,4 @@
+import os
 import uuid
 import requests
 import streamlit as st
@@ -8,6 +9,15 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide",
 )
+
+# --- Helper to Load Secrets Safely ---
+def get_secret(key: str, default: str = "") -> str:
+    if os.getenv(key):
+        return os.getenv(key, default)
+    try:
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
 
 # --- Session State Init ---
 if "session_id" not in st.session_state:
@@ -22,8 +32,16 @@ with st.sidebar:
     st.title("⚙️ Agent Controls")
     webhook_url = st.text_input(
         "n8n Webhook URL",
-      value="https://bibek-ai.app.n8n.cloud/webhook/751af5fb-c07c-4070-9cea-9279b0f7faec",
-        help="Click 'Publish' in n8n and paste your Production POST Webhook URL here.",
+        value=get_secret("N8N_WEBHOOK_URL", ""),
+        placeholder="https://your-instance.app.n8n.cloud/webhook/...",
+        type="password",
+        help="Loaded automatically from Streamlit Secrets, or paste your Production POST URL here.",
+    )
+    api_key = st.text_input(
+        "Webhook API Key (Header Auth)",
+        value=get_secret("N8N_API_KEY", ""),
+        placeholder="Optional X-API-Key secret",
+        type="password",
     )
     st.caption(f"**Session ID:** `{st.session_state.session_id}`")
 
@@ -107,12 +125,16 @@ st.divider()
 
 # --- Helper to Call n8n Webhook ---
 def query_agent(user_text: str) -> str:
-    if not webhook_url or "your-webhook-id" in webhook_url:
-        return "⚠️ Please paste your active n8n Production Webhook URL in the left sidebar first."
+    if not webhook_url:
+        return "⚠️ Please configure `N8N_WEBHOOK_URL` in Streamlit Secrets or paste it in the sidebar."
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
     try:
         resp = requests.post(
             webhook_url,
             json={"query": user_text, "sessionId": st.session_state.session_id},
+            headers=headers,
             timeout=90,
         )
         resp.raise_for_status()
